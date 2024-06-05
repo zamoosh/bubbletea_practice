@@ -70,7 +70,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "alt+c":
 			m.cursor = 0
-			for i, _ := range m.selected {
+			for i := range m.selected {
 				delete(m.selected, i)
 			}
 
