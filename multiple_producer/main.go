@@ -3,18 +3,33 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 var (
 	// imeiList   = []string{"864866057337932", "863051066174797", "864866059027275"}
 	imeiList   = []string{"864866057337932"}
 	deviceList = make([]device, 0)
+	style      = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#e6e6e6")).
+			PaddingTop(1).
+			PaddingBottom(1).
+			PaddingLeft(4).
+			Width(150).
+			Border(lipgloss.RoundedBorder())
+
+	innerStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#5fff57")).
+			PaddingTop(1).
+			PaddingBottom(1).
+			PaddingLeft(2).
+			PaddingRight(2).
+			Border(lipgloss.RoundedBorder())
 )
 
 type model struct {
@@ -25,6 +40,8 @@ type model struct {
 	textInput   textinput.Model
 	err         error
 	logs        string
+	width       int
+	height      int
 }
 
 func initialModel() *model {
@@ -42,6 +59,8 @@ func initialModel() *model {
 		lock:        &sync.Mutex{},
 		textInput:   ti,
 		err:         nil,
+		width:       20,
+		height:      20,
 	}
 }
 
@@ -82,6 +101,10 @@ func (m *model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+	case tea.WindowSizeMsg:
+		m.width = 50
+		m.height = 50
+		// fmt.Println(style.Render(fmt.Sprintf("%v", msg)))
 
 	case error:
 		m.err = msg
@@ -103,18 +126,15 @@ func (m *model) View() string {
 	s += fmt.Sprintf("%v", m.allowedImei) + "\n\n"
 
 	if len(m.allowedImei) > 0 {
-		s += "you will see:\n"
+		s += "LOGS:\n"
 
-		s += strings.Repeat("=", 100) + "\n"
-		s += m.logs
+		s += innerStyle.Render(m.logs)
 		select {
 		case res := <-m.sub:
-			m.logs += "\n" + res + "\n"
-			// s += m.logs
+			m.logs += res
 			m.lastInput--
 		default:
 		}
-		s += strings.Repeat("=", 100) + "\n"
 
 		s += "\n"
 	}
@@ -123,7 +143,8 @@ func (m *model) View() string {
 	s += "\n\n"
 	s += "press ctrl+c to exit.\n"
 
-	return s
+	// return s
+	return style.Render(s)
 }
 
 type device struct {
@@ -134,7 +155,7 @@ type device struct {
 func (m *model) logger(s string, d device) {
 	for _, item := range m.allowedImei {
 		if d.imei == item {
-			m.sub <- s
+			m.sub <- s + "\n"
 			m.lastInput++
 		}
 	}
