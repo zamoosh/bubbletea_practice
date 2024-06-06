@@ -1,4 +1,4 @@
-package main
+package multiple_producer
 
 import (
 	"fmt"
