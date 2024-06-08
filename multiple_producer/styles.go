@@ -6,7 +6,7 @@ import (
 
 // color codes
 const (
-	purple  = "#3a0ca3"
+	purple  = "#8338ec"
 	yellow  = "#ffc300"
 	blue    = "#0079FF"
 	white   = "#ffffff"
@@ -32,12 +32,12 @@ var (
 		PaddingLeft(4).
 		PaddingRight(4).
 		Width(120).
-		Height(20).
+		Height(23).
 		Border(lipgloss.RoundedBorder())
 
 	logWin = lipgloss.NewStyle().
 		Foreground(whiteI).
-		Height(15).
+		Height(20).
 		PaddingLeft(1).
 		PaddingRight(1).
 		Border(lipgloss.RoundedBorder()).
@@ -46,4 +46,12 @@ var (
 	imeiListStyle = lipgloss.NewStyle().
 			Foreground(greenI).
 			Bold(true)
+
+	infoStyle = lipgloss.NewStyle().
+			Background(purpleI).
+			Foreground(whiteI).Render
+
+	dangerStyle = lipgloss.NewStyle().
+		Background(redPinkI).
+		Foreground(whiteI).Render
 )
