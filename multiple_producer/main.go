@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"regexp"
 	"strings"
@@ -13,7 +14,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	lg "github.com/charmbracelet/lipgloss"
 )
 
 var (
@@ -45,22 +46,30 @@ type device struct {
 }
 
 func initialModel() *model {
+	cursorStyle := lg.NewStyle().
+		Bold(false).
+		Padding(0).
+		Border(lg.NormalBorder())
+
 	ti := textinput.New()
+	ti.ShowSuggestions = true
 	ti.Placeholder = "12345678912345"
-	ti.Focus()
 	ti.CharLimit = 15
 	ti.Width = 15
+	ti.SetSuggestions(imeiList)
+	ti.Focus()
+	ti.Cursor.Style = cursorStyle
 
-	vp := viewport.New(100, logWin.GetHeight())
+	vp := viewport.New(logWin.GetWidth(), logWin.GetHeight())
 
 	s := spinner.New()
 	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(greenI)
+	s.Style = lg.NewStyle().Foreground(cyanI)
 
 	return &model{
 		allowedImei: make([]string, 0),
 		logs:        make([]string, 0, 20),
-		maxLogLines: 200,
+		maxLogLines: 500,
 		lock:        &sync.Mutex{},
 		textInput:   ti,
 		err:         nil,
@@ -135,7 +144,13 @@ func (m *model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if len(m.logs) > m.maxLogLines {
 			m.logs = m.logs[1:]
 		}
-		m.display.viewport.SetContent(strings.Join(m.logs, "\n"))
+
+		numberedLogs := make([]string, 0, 20)
+		for i, item := range m.logs {
+			counter := lg.NewStyle().Foreground(yellowI).Render(fmt.Sprintf("%03d", i+1))
+			numberedLogs = append(numberedLogs, fmt.Sprintf("[%s] %s", counter, item))
+		}
+		m.display.viewport.SetContent(strings.Join(numberedLogs, "\n"))
 		if m.display.scrollToBottom {
 			m.display.viewport.GotoBottom()
 		}
@@ -163,15 +178,18 @@ func (m *model) View() string {
 
 	s += "Scroll to bottom: "
 	if m.display.scrollToBottom {
-		s += lipgloss.NewStyle().Foreground(greenI).Render(fmt.Sprintf("%v", m.display.scrollToBottom))
+		s += lg.NewStyle().Foreground(cyanI).Render(fmt.Sprintf("%v", okSymbol))
 	} else {
-		s += lipgloss.NewStyle().Foreground(redPinkI).Render(fmt.Sprintf("%v", m.display.scrollToBottom))
+		s += lg.NewStyle().Foreground(redPinkI).Render(fmt.Sprintf("%v", errorSymbol))
 	}
 	s += "\n"
 
-	if len(m.allowedImei) > 0 && len(m.logs) > 0 {
+	if m.display.logging {
 		s += m.spinner.View() + " "
 		s += "LOGS:\n"
+	}
+
+	if len(m.allowedImei) > 0 && len(m.logs) > 0 {
 		s += logWin.Render(m.display.viewport.View())
 		s += "\n"
 	} else {
@@ -185,15 +203,13 @@ func (m *model) View() string {
 	}
 
 	s += infoStyle("ctrl+r") + " to disable logging | "
-
 	s += infoStyle("alt+b") + " to trigger auto scroll  | "
-
 	s += dangerStyle("ctrl+c") + " to exit"
 
 	return mainWin.Render(s)
 }
 
-func (m *model) logger(s string, d device) {
+func (m *model) logger(s string) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	for _, item := range m.allowedImei {
@@ -204,8 +220,7 @@ func (m *model) logger(s string, d device) {
 }
 
 func (d device) produce(m *model) {
-	// ticker := time.NewTicker(time.Duration(rand.Intn(4)+1) * time.Second)
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(time.Duration(rand.Intn(4)+1) * time.Second)
 
 	for d.count > 0 {
 		now := time.Now().UTC().Format("20060102150405")
@@ -213,7 +228,7 @@ func (d device) produce(m *model) {
 
 		<-ticker.C
 		d.count--
-		m.logger(msg, d)
+		m.logger(msg)
 	}
 }
 

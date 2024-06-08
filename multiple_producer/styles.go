@@ -11,7 +11,7 @@ const (
 	blue    = "#0079FF"
 	white   = "#ffffff"
 	redPink = "#c21362"
-	green   = "#06d6a0"
+	cyan    = "#0FFFFF"
 )
 
 // color instances
@@ -21,7 +21,14 @@ const (
 	whiteI   = lipgloss.Color(white)
 	blueI    = lipgloss.Color(blue)
 	redPinkI = lipgloss.Color(redPink)
-	greenI   = lipgloss.Color(green)
+	cyanI    = lipgloss.Color(cyan)
+)
+
+const (
+	infoSymbol = "ℹ"
+	okSymbol = "✔"
+	warnSymbol = "⚠"
+	errorSymbol = "✖"
 )
 
 // styles
@@ -44,7 +51,7 @@ var (
 		BorderForeground(yellowI)
 
 	imeiListStyle = lipgloss.NewStyle().
-			Foreground(greenI).
+			Foreground(cyanI).
 			Bold(true)
 
 	infoStyle = lipgloss.NewStyle().
