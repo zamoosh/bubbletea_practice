@@ -8,9 +8,11 @@ import (
 func main() {
 	l := []string{"ali", "mohammad reza", "sara", "nob", "ashly"}
 
-	// ls := fmt.Sprintf("%v", l)[1:]
-	// ls = ls[:len(ls)-1]
-	ls := strings.Join(l, "\n")
+	cl := make([]string, 0, 10)
+	for i, item := range l {
+		cl = append(cl, fmt.Sprintf("[%d] %s", i, item))
+	}
+	ls := strings.Join(cl, "\n")
 
 	fmt.Println(ls)
 }
