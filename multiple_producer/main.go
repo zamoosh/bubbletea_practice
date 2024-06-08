@@ -9,13 +9,13 @@ import (
 
 	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
 var (
-	// imeiList   = []string{"864866057337932", "863051066174797", "864866059027275"}
-	imeiList   = []string{"864866057337932"}
+	imeiList   = []string{"864866057337932", "863051066174797", "864866059027275"}
 	deviceList = make([]device, 0)
 )
 
@@ -26,22 +26,39 @@ type model struct {
 	err         error
 	maxLogLines int
 	logs        []string
+	display     *logDisplay
+}
+
+type logDisplay struct {
+	viewport       viewport.Model
+	scrollToBottom bool
+}
+
+type device struct {
+	imei  string
+	count int
 }
 
 func initialModel() *model {
 	ti := textinput.New()
-	ti.Placeholder = "864866057337932"
+	ti.Placeholder = "12345678912345"
 	ti.Focus()
 	ti.CharLimit = 15
-	ti.Width = 30
+	ti.Width = 15
+
+	vp := viewport.New(100, 18)
 
 	return &model{
 		allowedImei: make([]string, 0),
-		logs:        make([]string, 0),
-		maxLogLines: 9,
+		logs:        make([]string, 0, 20),
+		maxLogLines: 200,
 		lock:        &sync.Mutex{},
 		textInput:   ti,
 		err:         nil,
+		display: &logDisplay{
+			viewport:       vp,
+			scrollToBottom: true,
+		},
 	}
 }
 
@@ -58,9 +75,15 @@ func (m *model) Init() tea.Cmd {
 
 func (m *model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
+	var commands []tea.Cmd
 
 	switch msg := message.(type) {
 	case tea.KeyMsg:
+		switch msg.String() {
+		case "alt+b":
+			m.display.scrollToBottom = !m.display.scrollToBottom
+		}
+
 		switch msg.Type {
 		case tea.KeyEnter:
 			if len(m.textInput.Value()) != 15 {
@@ -69,15 +92,16 @@ func (m *model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 
 			m.allowedImei = append(m.allowedImei, m.textInput.Value())
 			m.textInput.SetValue("")
+			// m.textInput.Blur()
 		case tea.KeyCtrlC:
 			return m, tea.Quit
 		case tea.KeyCtrlR:
 			if len(m.allowedImei) > 0 {
 				m.allowedImei = m.allowedImei[:len(m.allowedImei)-1]
+				m.logs = []string{}
+				m.display.viewport.SetContent("")
 			}
 		}
-	case tea.WindowSizeMsg:
-		// fmt.Println(style.Render(fmt.Sprintf("%v", msg)))
 	case error:
 		m.err = msg
 		return m, nil
@@ -85,22 +109,45 @@ func (m *model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if len(m.logs) > m.maxLogLines {
 			m.logs = m.logs[1:]
 		}
+		m.display.viewport.SetContent(strings.Join(m.logs, "\n"))
+		if m.display.scrollToBottom {
+			m.display.viewport.GotoBottom()
+		}
+	case tea.MouseMsg:
+		switch message.(type) {
+		}
 	}
 
 	m.textInput, cmd = m.textInput.Update(message)
-	return m, cmd
+	commands = append(commands, cmd)
+
+	m.display.viewport, cmd = m.display.viewport.Update(message)
+	commands = append(commands, cmd)
+
+	return m, tea.Batch(commands...)
 }
 
 func (m *model) View() string {
 	s := ""
 
-	s += "Enter your IMEI (15 digits):\n"
-	s += fmt.Sprintf("%v", m.allowedImei) + "\n\n"
+	s += "Enter your IMEI (15 digits): "
+	s += imeiListStyle.Render(fmt.Sprintf("%v", m.allowedImei))
+	s += "\n"
+
+	s += "Scroll to bottom: "
+	if m.display.scrollToBottom {
+		s += lipgloss.NewStyle().Foreground(greenI).Render(fmt.Sprintf("%v", m.display.scrollToBottom))
+	} else {
+		s += lipgloss.NewStyle().Foreground(redPinkI).Render(fmt.Sprintf("%v", m.display.scrollToBottom))
+	}
+	s += "\n"
 
 	if len(m.allowedImei) > 0 && len(m.logs) > 0 {
 		s += "LOGS:\n"
-		s += logWin.Render(strings.Join(m.logs, "\n"))
+		s += logWin.Render(m.display.viewport.View())
 		s += "\n"
+	} else {
+		s += strings.Repeat("\n", 18)
 	}
 
 	s += m.textInput.View()
@@ -108,29 +155,27 @@ func (m *model) View() string {
 
 	exitStyle := lipgloss.NewStyle().
 		Background(redPinkI).
-		Foreground(whiteI)
+		Foreground(whiteI).
+		PaddingLeft(1).
+		PaddingRight(1)
+
 	s += exitStyle.Render("press ctrl+c to exit")
 
 	return mainWin.Render(s)
-}
-
-type device struct {
-	imei  string
-	count int
 }
 
 func (m *model) logger(s string, d device) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	for _, item := range m.allowedImei {
-		if d.imei == item {
+		if strings.Contains(s, item) {
 			m.logs = append(m.logs, s)
 		}
 	}
 }
 
 func (d device) produce(m *model) {
-	// ticker := time.NewTicker(time.Duration(rand.Intn(9)+1) * time.Second)
+	// ticker := time.NewTicker(time.Duration(rand.Intn(4)+1) * time.Second)
 	ticker := time.NewTicker(1 * time.Second)
 
 	for d.count > 0 {
@@ -144,7 +189,7 @@ func (d device) produce(m *model) {
 }
 
 func main() {
-	p := tea.NewProgram(initialModel())
+	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Println("could not start program:", err)
 		os.Exit(1)
