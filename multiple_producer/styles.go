@@ -38,7 +38,7 @@ var (
 		PaddingTop(1).
 		PaddingLeft(4).
 		PaddingRight(4).
-		Width(120).
+		Width(150).
 		Height(23).
 		Border(lipgloss.RoundedBorder())
 
