@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
 	"regexp"
 	"strings"
@@ -60,7 +59,6 @@ func initialModel() *model {
 	ti.Cursor.Style = cursorStyle
 
 	vp := viewport.New(logWin.GetWidth(), logWin.GetHeight())
-	// vp.YPosition = 0
 
 	s := spinner.New()
 	s.Spinner = spinner.Dot
@@ -69,7 +67,7 @@ func initialModel() *model {
 	return &model{
 		allowedImei: make([]string, 0),
 		logs:        make([]string, 0, 20),
-		maxLogLines: 500,
+		maxLogLines: 1000,
 		lock:        &sync.Mutex{},
 		textInput:   ti,
 		err:         nil,
@@ -198,7 +196,9 @@ func (m *model) View() string {
 	}
 
 	if len(m.allowedImei) > 0 && len(m.logs) > 0 {
-		s += logWin.Render(m.display.viewport.View())
+		s += logWin.Render(m.display.viewport.View() +
+			" " +
+			fmt.Sprintf("%.2f", m.display.viewport.ScrollPercent()))
 		s += "\n"
 	} else {
 		s += strings.Repeat("\n", mainWin.GetHeight())
@@ -229,8 +229,8 @@ func (m *model) logger(s string) {
 }
 
 func (d device) produce(m *model) {
-	ticker := time.NewTicker(time.Duration(rand.Intn(4)+1) * time.Second)
-	// ticker := time.NewTicker(100 * time.Millisecond)
+	// ticker := time.NewTicker(time.Duration(rand.Intn(4)+1) * time.Second)
+	ticker := time.NewTicker(100 * time.Millisecond)
 
 	for d.count > 0 {
 		dt := time.Now().UTC().Format("20060102150405")
